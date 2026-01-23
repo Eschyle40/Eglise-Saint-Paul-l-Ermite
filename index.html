@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <title>three.js - misc - octree collisions</title>
+    <meta charset=utf-8 />
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="main.css">
+</head>
+
+<body>
+    <div id="info">
+        Église Saint-Paul l'Ermite<br />
+        ZQSD pour se déplacer, ESPACE pour sauter et MOLETTE pour zoomer
+        <a id="presentoire" href="./presentoire/presentoire.html">Presentoire</a>
+    </div>
+
+    <div id="container"></div>
+    <script type="importmap">
+            {
+                "imports": {
+                    "three": "./build/three.module.js",
+                    "three/addons/": "./jsm/"
+                }
+            }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import Stats from 'three/addons/libs/stats.module.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { Octree } from 'three/addons/math/Octree.js';
+        import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
+        import { Capsule } from 'three/addons/math/Capsule.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        // Classe pour gérer l'affichage des stats
+        import { GameStats } from './js/stats.js';
+
+        const clock = new THREE.Clock();
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x88ccee);
+        scene.autoUpdate = false; // Désactive la mise à jour automatique de la scène
+
+        // Définir les paramètres de zoom
+        const MIN_FOV = 30; // Champ de vision minimum
+        const MAX_FOV = 100; // Champ de vision maximum
+        const ZOOM_SPEED = 0.5; // Vitesse de zoom
+        let currentFov = 70; // Champ de vision actuel
+
+        const camera = new THREE.PerspectiveCamera(currentFov, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.rotation.order = 'YXZ';
+        camera.fov = currentFov;
+        camera.updateProjectionMatrix();
+
+        const fillLight1 = new THREE.HemisphereLight(0x8dc1de, 0x00668d, 1.5);
+        fillLight1.position.set(2, 1, 1);
+        scene.add(fillLight1);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        directionalLight.position.set(-100, 5, -25);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.near = 0.0001;
+
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.radius = 8;
+        directionalLight.shadow.bias = -0.0001;
+        scene.add(directionalLight);
+
+        const DirectionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 2);
+        scene.add(DirectionalLightHelper);
+
+        const container = document.getElementById('container');
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setAnimationLoop(animate);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.VSMShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // Initialisation des stats personnalisées
+        const gameStats = new GameStats();
+        gameStats.init(container);
+
+        const GRAVITY = 40;
+        const STEPS_PER_FRAME = 2;
+
+        const worldOctree = new Octree();
+        const vector1 = new THREE.Vector3();
+        const vector2 = new THREE.Vector3();
+        const vector3 = new THREE.Vector3();
+
+        class EventManager {
+            constructor() {
+                this.listeners = new Map();
+            }
+
+            addEventListener(element, event, handler) {
+                element.addEventListener(event, handler);
+                const key = `${element}-${event}`;
+                if (!this.listeners.has(key)) {
+                    this.listeners.set(key, []);
+                }
+                this.listeners.get(key).push(handler);
+            }
+
+            removeEventListeners(element, event) {
+                const key = `${element}-${event}`;
+                if (this.listeners.has(key)) {
+                    const handlers = this.listeners.get(key);
+                    handlers.forEach(handler => {
+                        element.removeEventListener(event, handler);
+                    });
+                    this.listeners.delete(key);
+                }
+            }
+
+            removeAllEventListeners() {
+                this.listeners.forEach((handlers, key) => {
+                    const [element, event] = key.split('-');
+                    handlers.forEach(handler => {
+                        element.removeEventListener(event, handler);
+                    });
+                });
+                this.listeners.clear();
+            }
+        }
+
+        const eventManager = new EventManager();
+
+        class Player {
+            constructor() {
+                this.collider = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1, 0), 0.35);
+                this.velocity = new THREE.Vector3();
+                this.onFloor = false;
+                this.direction = new THREE.Vector3();
+                this.initPosition();
+            }
+
+            initPosition() {
+                this.collider.start.set(0, 5, 0);
+                this.collider.end.set(0, 6, 0);
+                camera.position.copy(this.collider.end);
+                camera.lookAt(200, 0, -2500);
+            }
+
+            getForwardVector() {
+                camera.getWorldDirection(this.direction);
+                this.direction.y = 0;
+                this.direction.normalize();
+                return this.direction;
+            }
+
+            getSideVector() {
+                camera.getWorldDirection(this.direction);
+                this.direction.y = 0;
+                this.direction.normalize();
+                this.direction.cross(camera.up);
+                return this.direction;
+            }
+
+            controls(deltaTime) {
+                const speedDelta = deltaTime * (this.onFloor ? 25 : 8);
+                if (keyStates['KeyW']) {
+                    this.velocity.add(this.getForwardVector().multiplyScalar(speedDelta));
+                }
+                if (keyStates['KeyS']) {
+                    this.velocity.add(this.getForwardVector().multiplyScalar(-speedDelta));
+                }
+                if (keyStates['KeyA']) {
+                    this.velocity.add(this.getSideVector().multiplyScalar(-speedDelta));
+                }
+                if (keyStates['KeyD']) {
+                    this.velocity.add(this.getSideVector().multiplyScalar(speedDelta));
+                }
+                if (this.onFloor && keyStates['Space']) {
+                    this.velocity.y = 15;
+                }
+            }
+
+            collisions(worldOctree) {
+                const result = worldOctree.capsuleIntersect(this.collider);
+                this.onFloor = false;
+                if (result) {
+                    this.onFloor = result.normal.y > 0;
+                    if (!this.onFloor) {
+                        this.velocity.addScaledVector(result.normal, -result.normal.dot(this.velocity));
+                    }
+                    if (result.depth >= 1e-10) {
+                        this.collider.translate(result.normal.multiplyScalar(result.depth));
+                    }
+                }
+            }
+
+            update(deltaTime, worldOctree) {
+                let damping = Math.exp(-4 * deltaTime) - 1;
+                if (!this.onFloor) {
+                    this.velocity.y -= GRAVITY * deltaTime;
+                    damping *= 0.1;
+                }
+                this.velocity.addScaledVector(this.velocity, damping);
+                const deltaPosition = this.velocity.clone().multiplyScalar(deltaTime);
+                this.collider.translate(deltaPosition);
+                this.collisions(worldOctree);
+                camera.position.copy(this.collider.end);
+            }
+        }
+        const player = new Player();
+
+        let mouseTime = 0;
+        const keyStates = {};
+
+        eventManager.addEventListener(document, 'keydown', (event) => {
+            keyStates[event.code] = true;
+        });
+
+        eventManager.addEventListener(document, 'keyup', (event) => {
+            keyStates[event.code] = false;
+        });
+
+        eventManager.addEventListener(container, 'mousedown', () => {
+            document.body.requestPointerLock();
+            mouseTime = performance.now();
+        });
+
+        eventManager.addEventListener(document.body, 'mousemove', (event) => {
+            if (document.pointerLockElement === document.body) {
+                camera.rotation.y -= event.movementX / 500;
+                camera.rotation.x -= event.movementY / 500;
+            }
+        });
+
+        eventManager.addEventListener(document.body, 'wheel', (event) => {
+            if (document.pointerLockElement === document.body) {
+                handleZoom(event.deltaY);
+            }
+        }, { passive: false });
+
+        eventManager.addEventListener(window, 'resize', onWindowResize);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function handleZoom(deltaY) {
+            currentFov -= deltaY * ZOOM_SPEED;
+            currentFov = Math.max(MIN_FOV, Math.min(MAX_FOV, currentFov));
+            camera.fov = currentFov;
+            camera.updateProjectionMatrix();
+        }
+
+        function teleportPlayerIfOob() {
+            if (camera.position.y <= -200) {
+                player.initPosition();
+                camera.rotation.set(0, 0, 0);
+            }
+        }
+
+        async function loadModelsConfig() {
+            try {
+                const response = await fetch('./models/models.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const config = await response.json();
+                return config.models;
+            } catch (error) {
+                console.error('Failed to load models configuration:', error);
+                return [];
+            }
+        }
+
+        function loadModel(modelConfig, scene, worldOctree) {
+            return new Promise((resolve) => {
+                const loader = new GLTFLoader().setPath('./models/gltf/');
+                loader.load(modelConfig.path, (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(modelConfig.scale, modelConfig.scale, modelConfig.scale);
+                    model.position.set(...modelConfig.position);
+                    model.rotation.set(...modelConfig.rotation);
+
+                    if (modelConfig.enableCollisions) {
+                        worldOctree.fromGraphNode(model);
+                    }
+                    model.traverse(child => {
+                        if (child.isMesh) {
+                            child.castShadow = modelConfig.castShadow || false;
+                            child.receiveShadow = modelConfig.receiveShadow || false;
+                            if (child.material.map) {
+                                child.material.map.anisotropy = 1;
+                            }
+
+                            // Convertir la géométrie en BufferGeometry si ce n'est pas déjà le cas
+                            if (child.geometry && !(child.geometry instanceof THREE.BufferGeometry)) {
+                                child.geometry = new THREE.BufferGeometry().fromGeometry(child.geometry);
+                            }
+                        }
+                    });
+
+                    scene.add(model);
+                    resolve(model);
+                });
+            });
+        }
+
+        async function loadAllModels() {
+            const modelsConfig = await loadModelsConfig();
+
+            const loadedModels = await Promise.all(modelsConfig.map(modelConfig => {
+                return loadModel(modelConfig, scene, worldOctree);
+            }));
+
+            const helper = new OctreeHelper(worldOctree);
+            helper.visible = false;
+            scene.add(helper);
+
+            const gui = new GUI({ width: 200 });
+            gui.add({ debug: false }, 'debug')
+                .onChange(function (value) {
+                    helper.visible = value;
+                });
+
+            return loadedModels;
+        }
+
+        // Utilisation
+        loadAllModels().then(() => {
+            console.log('Tous les modèles ont été chargés');
+        });
+
+        function animate() {
+            const deltaTime = Math.min(0.05, clock.getDelta()) / STEPS_PER_FRAME;
+
+            // Mise à jour manuelle de la scène pour le culling
+            scene.updateMatrixWorld();
+
+            for (let i = 0; i < STEPS_PER_FRAME; i++) {
+                player.controls(deltaTime);
+                player.update(deltaTime, worldOctree);
+                teleportPlayerIfOob();
+            }
+
+            renderer.render(scene, camera);
+            gameStats.update(); // Mise à jour des stats
+        }
+    </script>
+</body>
+
+</html>
