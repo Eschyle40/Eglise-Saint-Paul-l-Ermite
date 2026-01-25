@@ -263,7 +263,7 @@
 
         async function loadModelsConfig() {
             try {
-                const response = await fetch('models/models.json');
+                const response = await fetch('./models/models.json');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
