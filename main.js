@@ -62,7 +62,7 @@ const scale = 15;
 let model;
 
 loader.load(
-    'models/sculptures/bas-reliefs/Bas_relief_2/Bas_relief_2_ultra_texture.glb',
+    'models/gltf/Bas_relief_2_ultra_texture.glb',
     (gltf) => {
         model = gltf.scene;
         model.scale.set(scale, scale, scale);
