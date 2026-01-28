@@ -10,15 +10,6 @@
       "enableCollisions": true
     },
     {
-      "path": "test.glb",
-      "scale": 1,
-      "position": [0, 0, 0],
-      "rotation": [1.5708, 3.14, 0],
-      "castShadow": false,
-      "receiveShadow": false,
-      "enableCollisions": true
-    },
-    {
       "path": "Chapiteau_10_final.glb",
       "scale": 1,
       "position": [0, 0, 0],
