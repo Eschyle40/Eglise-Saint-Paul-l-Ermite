@@ -10,7 +10,7 @@
       "enableCollisions": true
     },
     {
-      "path": "Chapiteau_10_final.glb",
+      "path": "Chapiteau_10_low_final.glb",
       "scale": 1,
       "position": [0, 0, 0],
       "rotation": [1.5708, 3.14, 0],
@@ -29,7 +29,7 @@
 
     },
     {
-      "path": "Chapiteau_9_ultra_final.glb",
+      "path": "Chapiteau_9_low_final.glb",
       "scale": 1,
       "position": [0, 0, 0],
       "rotation": [1.5708, 3.14, 0],
