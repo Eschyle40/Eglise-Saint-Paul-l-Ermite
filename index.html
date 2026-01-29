@@ -12,7 +12,7 @@
     <div id="info">
         Église Saint-Paul l'Ermite<br />
         ZQSD pour se déplacer, ESPACE pour sauter et MOLETTE pour zoomer
-        <a id="presentoire" href="presentoire.html">Présentoir (lien cliquable)</a>
+        <a id="presentoire" href="./presentoire.html">Présentoir (lien cliquable)</a>
     </div>
 
     <div id="container"></div>
@@ -31,7 +31,8 @@
         import { Octree } from 'three/addons/math/Octree.js';
         import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
         import { Capsule } from 'three/addons/math/Capsule.js';
-        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
+        import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
         // Classe pour gérer l'affichage des stats
         import { GameStats } from './js/stats.js';
 
@@ -59,28 +60,42 @@
         directionalLight.position.set(-2, 40, -40);
         directionalLight.castShadow = true;
         directionalLight.shadow.camera.near = 0.000001;
-
-directionalLight.shadow.needsUpdate = true;
-
-directionalLight.shadow.autoUpdate = false; // Désactive la mise à jour automatique
-
-
-        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.needsUpdate = true;
+        directionalLight.shadow.autoUpdate = false; // Désactive la mise à jour automatique
+        directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 1024;
         directionalLight.shadow.radius = 3;
         directionalLight.shadow.bias = -0.1;
         scene.add(directionalLight);
-
         // Ajout d'une cible personnalisée
-const targetObject = new THREE.Object3D();
-targetObject.position.set(0, 5, -10);
-scene.add(targetObject);
-directionalLight.target = targetObject;
+        const targetObject = new THREE.Object3D();
+        targetObject.position.set(0, 5, -10);
+        scene.add(targetObject);
+        directionalLight.target = targetObject;
 
 
-        //const DirectionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 2);
-        //scene.add(DirectionalLightHelper);
+        const directionalLight2 = new THREE.DirectionalLight(0xF5C669, 5);
+        directionalLight2.position.set(-2, 10, 40);
+        directionalLight2.castShadow = true;
+        directionalLight2.shadow.camera.near = 0.000001;
+        directionalLight2.shadow.needsUpdate = true;
+        directionalLight2.shadow.autoUpdate = false; // Désactive la mise à jour automatique
+        directionalLight2.shadow.mapSize.width = 1024;
+        directionalLight2.shadow.mapSize.height = 1024;
+        directionalLight2.shadow.radius = 3;
+        directionalLight2.shadow.bias = -0.1;
+        scene.add(directionalLight2);
+        // Ajout d'une cible personnalisée
+        const targetObject2 = new THREE.Object3D();
+        targetObject.position.set(0, 5, -10);
+        scene.add(targetObject);
+        directionalLight2.target = targetObject;
 
+
+        const DirectionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 2);
+        scene.add(DirectionalLightHelper);
+        const DirectionalLightHelper2 = new THREE.DirectionalLightHelper(directionalLight2, 2);
+        scene.add(DirectionalLightHelper2);
         const container = document.getElementById('container');
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -300,8 +315,8 @@ directionalLight.target = targetObject;
                     }
                     model.traverse(child => {
                         if (child.isMesh) {
-                            child.castShadow = modelConfig.castShadow || false;
-                            child.receiveShadow = modelConfig.receiveShadow || false;
+                            child.castShadow = true;
+                            child.receiveShadow = true;
                             if (child.material.map) {
                                 child.material.map.anisotropy = 1;
                             }
