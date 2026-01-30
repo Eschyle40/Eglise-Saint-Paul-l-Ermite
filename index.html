@@ -3,12 +3,30 @@
 
 <head>
     <title>Église Saint-Paul l'Ermite</title>
-    <meta charset=utf-8 />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link type="text/css" rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="main.css">
 </head>
 
 <body>
+    <!-- Bouton pour ouvrir le menu -->
+    <button class="toggle-menu-btn" id="toggleMenuBtn">
+        ☰ Menu
+    </button>
+
+    <!-- Menu glissant -->
+    <div class="sliding-menu" id="slidingMenu">
+        <div class="menu-header">
+            <div class="menu-title">Menu</div>
+            <button class="close-btn" id="closeMenuBtn">×</button>
+        </div>
+        <div class="menu-content">
+            <div class="menu-item">Accueil</div>
+            <div class="menu-item">Visite guidée</div>
+            <div class="menu-item">À propos</div>
+        </div>
+    </div>
+
     <div id="info">
         Église Saint-Paul l'Ermite<br />
         ZQSD pour se déplacer, ESPACE pour sauter et MOLETTE pour zoomer
@@ -16,6 +34,8 @@
     </div>
 
     <div id="container"></div>
+
+
     <script type="importmap">
             {
                 "imports": {
@@ -32,7 +52,6 @@
         import { OctreeHelper } from 'three/addons/helpers/OctreeHelper.js';
         import { Capsule } from 'three/addons/math/Capsule.js';
         import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
-        import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
         // Classe pour gérer l'affichage des stats
         import { GameStats } from './js/stats.js';
 
@@ -56,16 +75,19 @@
         fillLight1.position.set(50, -10, 5);
         scene.add(fillLight1);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 5);
-        directionalLight.position.set(-2, 40, -40);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.near = 0.000001;
-        directionalLight.shadow.needsUpdate = true;
-        directionalLight.shadow.autoUpdate = false; // Désactive la mise à jour automatique
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 1024;
-        directionalLight.shadow.radius = 3;
-        directionalLight.shadow.bias = -0.1;
+			const directionalLight = new THREE.DirectionalLight( 0xffffff, 2.5 );
+			directionalLight.position.set( - 5, 25, - 1 );
+			directionalLight.castShadow = true;
+			directionalLight.shadow.camera.near = 0.01;
+			directionalLight.shadow.camera.far = 500;
+			directionalLight.shadow.camera.right = 30;
+			directionalLight.shadow.camera.left = - 30;
+			directionalLight.shadow.camera.top	= 30;
+			directionalLight.shadow.camera.bottom = - 30;
+			directionalLight.shadow.mapSize.width = 1024;
+			directionalLight.shadow.mapSize.height = 1024;
+			directionalLight.shadow.radius = 4;
+			directionalLight.shadow.bias = - 0.00006;
         scene.add(directionalLight);
         // Ajout d'une cible personnalisée
         const targetObject = new THREE.Object3D();
@@ -74,28 +96,12 @@
         directionalLight.target = targetObject;
 
 
-        const directionalLight2 = new THREE.DirectionalLight(0xF5C669, 5);
-        directionalLight2.position.set(-2, 10, 40);
-        directionalLight2.castShadow = true;
-        directionalLight2.shadow.camera.near = 0.000001;
-        directionalLight2.shadow.needsUpdate = true;
-        directionalLight2.shadow.autoUpdate = false; // Désactive la mise à jour automatique
-        directionalLight2.shadow.mapSize.width = 1024;
-        directionalLight2.shadow.mapSize.height = 1024;
-        directionalLight2.shadow.radius = 3;
-        directionalLight2.shadow.bias = -0.1;
-        scene.add(directionalLight2);
-        // Ajout d'une cible personnalisée
-        const targetObject2 = new THREE.Object3D();
-        targetObject.position.set(0, 5, -10);
-        scene.add(targetObject);
-        directionalLight2.target = targetObject;
+
 
 
         const DirectionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 2);
         scene.add(DirectionalLightHelper);
-        const DirectionalLightHelper2 = new THREE.DirectionalLightHelper(directionalLight2, 2);
-        scene.add(DirectionalLightHelper2);
+
         const container = document.getElementById('container');
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -374,6 +380,25 @@
             renderer.render(scene, camera);
             gameStats.update(); // Mise à jour des stats
         }
+    </script>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggleMenuBtn');
+    const slidingMenu = document.getElementById('slidingMenu');
+    const closeBtn = document.getElementById('closeMenuBtn');
+
+    toggleBtn.addEventListener('click', function() {
+        slidingMenu.classList.toggle('active');
+    });
+
+    closeBtn.addEventListener('click', function() {
+        slidingMenu.classList.remove('active');
+    });
+
+    // Suppression de l'événement de fermeture en cliquant en dehors
+});
+
     </script>
 </body>
 
